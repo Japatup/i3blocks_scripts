@@ -1,74 +1,107 @@
-#!/usr/bin/perl
-#
-# Copyright 2014 Pierre Mavro <deimos@deimos.fr>
-# Copyright 2014 Vivien Didelot <vivien@didelot.org>
-#
-# Licensed under the terms of the GNU GPL v3, or any later version.
-#
-# This script is meant to use with i3blocks. It parses the output of the "acpi"
-# command (often provided by a package of the same name) to read the status of
-# the battery, and eventually its remaining time (to full charge or discharge).
-#
-# The color will gradually change for a percentage below 85%, and the urgency
-# (exit code 33) is set if there is less that 5% remaining.
+#!/usr/bin/python3
 
-use strict;
-use warnings;
-use utf8;
+import os
+import re
+import sys
 
-my $acpi;
-my $status;
-my $percent;
-my $full_text;
-my $short_text;
-my $bat_number = $ENV{BLOCK_INSTANCE} || 0;
+##### parametres : 
+## seuil_critiques 1 et 2, à partir desquels déclencher les nagbar warning (orange) et error (rouge).
+seuil_critique_33=20
+seuil_critique_warning=17
+seuil_critique_error=13
 
-# read the first line of the "acpi" command output
-open (ACPI, "acpi -b | grep 'Battery $bat_number' |") or die;
-$acpi = <ACPI>;
-close(ACPI);
+## adresse du dossier où écrire les checkpoints
+checkpoint_file_dir="/tmp/tmp_ram"
 
-# fail on unexpected output
-if ($acpi !~ /: (\w+), (\d+)%/) {
-	die "$acpi\n";
-}
+##### fonctions
+def nagbar_launch_once(seuil=seuil_critique_warning
+						,checkpoint_file_name="i3blocks_battery_seuil_critique_warning"
+						,checkpoint_file_dir=checkpoint_file_dir
+						,type_nagbar = "warning"):
+	try:
+		with open(checkpoint_file_dir+"/"+checkpoint_file_name,"r") as fichier: pass
+	except:
+		with open(checkpoint_file_dir+"/"+checkpoint_file_name,"w") as fichier: pass	
+		os.popen("i3-msg fullscreen disable")
+		# os.system("i3-nagbar -t " + type_nagbar + " -m 'batterie < "+str(seuil)+"% : branchez votre chargeur'")
+		os.popen("i3-nagbar -t " + type_nagbar + " -m 'batterie < "+str(seuil)+"% : branchez votre chargeur' &")
 
-$status = $1;
-$percent = $2;
-$full_text = "$percent%";
+def nagbar_reset_memory( checkpoint_file_name="i3blocks_battery_seuil_critique_warning"
+						,checkpoint_file_dir=checkpoint_file_dir):
+	try:
+		with open(checkpoint_file_dir+"/"+checkpoint_file_name,"r") as fichier: pass
+	except: pass
+	else:
+		os.remove(checkpoint_file_dir+"/"+checkpoint_file_name)
 
-if ($status eq 'Discharging') {
-	$full_text .= ' DIS';
-} elsif ($status eq 'Charging') {
-	$full_text .= ' CHR';
-}
 
-$short_text = $full_text;
+## récupération du bat_number à partir des variables d'environnement, au cas ou on voudrait un numéro de batterie autre que le 0
+try:
+	bat_number=os.environ["BLOCK_INSTANCE"]
+except KeyError:
+	bat_number="0"
 
-if ($acpi =~ /(\d\d:\d\d):/) {
-	$full_text .= " ($1)";
-}
+## on récupère la sortie de la commande acpi -b, avec os.popen (os.system exécute la commande et ne renvoie pas la string stdout)
+output_acpi=os.popen("acpi -b | grep 'Battery "+ bat_number +"'").readlines()[0]
 
-# print text
-print "$full_text\n";
-print "$short_text\n";
+## on ne prend que les infos qui nous intéressent (on aurait pu faire un str.split également)
+res_acpi=re.search(r".*:\s?(?P<state>\w+),\s?(?P<percent>\d+)%,\s?(?P<remaining>\d+:\d+).*",output_acpi)
 
-	if ($percent < 20) {
-		print "#FF0000\n";
-	} elsif ($percent < 40) {
-		print "#FFAE00\n";
-	} elsif ($percent < 60) {
-		print "#FFF600\n";
-	} elsif ($percent < 85) {
-		print "#A8FF00\n";
-	}
+if not res_acpi is None:
+	if res_acpi.group('state') == "Discharging":
+		state = "DIS"
+	elif res_acpi.group('state') == "Charging":
+		state = "CHR"
+	else:
+		state = "??"
+	percent = res_acpi.group('percent')
+	remaining = res_acpi.group('remaining')
+else:
+	raise Exception("format de la sortie acpi non reconnu")
 
-## si batterie sous un certain seuil, affichage de la popup en nagbar
-# urgent flag only on discharge	
-if ($status eq 'Discharging') {
-	if ($percent < 20) {
-		exit(33);
-	}
-}
+## on prépare les version longues et courtes du texte à afficher
 
-exit(0);
+short_text = percent + "%" + " " + state
+full_text = short_text + " (" + remaining + ")"
+
+## on prépare la couleur à afficher
+if float(percent) < 20:
+	color="#FF0000"
+elif float(percent) < 40:
+	color="#FFAE00"
+elif float(percent) < 60:
+	color="#FFF600"
+elif float(percent) < 85:
+	color="#A8FF00"
+else:
+	color="#ffffff"
+
+## on imprime les sorties, dans l'ordre full_text, short_text, color
+print (full_text)
+print (short_text)
+print (color)
+	
+## si batterie sous un certain seuil, affichage de la popup en nagbar.
+## on affiche la nagbar uniquement une fois par passage de seuil, et non à chaque lancement du programme.
+## pour ce faire, on créé un fichier lorsqu'on affiche pour la première fois la nagbar, et on check ensuite sa présence.
+## ce fichier est créé en ram sur /tmp/tmp_ram (un tmpfs, voir fstab), et est détruit sitôt que la batterie est remise en charge ou dépasse les seuils paramétrés en début de programme
+
+if state=="DIS" and float(percent) < seuil_critique_error:
+	nagbar_launch_once(	 seuil = seuil_critique_error
+						,checkpoint_file_name="i3blocks_battery_seuil_critique_error"
+						,checkpoint_file_dir=checkpoint_file_dir
+						,type_nagbar = "error")
+elif state=="DIS" and float(percent) < seuil_critique_warning:
+	nagbar_launch_once(	 seuil = seuil_critique_warning
+						,checkpoint_file_name="i3blocks_battery_seuil_critique_warning"
+						,checkpoint_file_dir=checkpoint_file_dir
+						,type_nagbar = "warning")
+elif state=="CHR" or float(percent) >= seuil_critique_error:
+    nagbar_reset_memory( checkpoint_file_name="i3blocks_battery_seuil_critique_error"
+                        ,checkpoint_file_dir=checkpoint_file_dir)
+    nagbar_reset_memory( checkpoint_file_name="i3blocks_battery_seuil_critique_warning"
+                        ,checkpoint_file_dir=checkpoint_file_dir)
+
+## urgent flag (33)
+if state == 'DIS' and float(percent) < seuil_critique_33:
+		sys.exit(33)
