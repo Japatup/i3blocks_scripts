@@ -1,0 +1,18 @@
+## In this dir are the scripts used by i3blocks.
+## files in this dir are those I modified for my own needs. Defaults scripts are stored in the default_scripts dir,
+## and I just create symlinks here so i3blocks can find all scripts in just one dir.
+
+## Thus, I exclude symlinks (ie defaults scripts) (with the following command : "find ./ -maxdepth 1 -type l") :
+
+temperature
+openvpn
+wifi
+cpu_usage
+keyindicator
+bandwidth
+disk
+mediaplayer
+load_average
+memory
+volume
+
