@@ -16,3 +16,5 @@ load_average
 memory
 volume
 !default_scripts/*
+
+i3blocks_configuration/config
