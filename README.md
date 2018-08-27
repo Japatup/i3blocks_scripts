@@ -17,7 +17,7 @@ I changed the default script behavior so it uses the i3-nagbar.
 
 When battery level goes under a first chosen level, i3-nagbar appears in warning mode (the orange one) to warn you and remind you to charge your battery.
 
-![warning i3-nagbar](screenshots/i3-nagbar warning.jpg)
+![warning i3-nagbar](https://github.com/Japatup/i3blocks_config/blob/master/screenshots/i3-nagbar%20warning.jpg)
 
 There is also a second level you can choose (lower), to call the i3-nagbar in error mode (the red one).
 
