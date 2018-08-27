@@ -15,4 +15,4 @@ mediaplayer
 load_average
 memory
 volume
-
+!default_scripts/*
