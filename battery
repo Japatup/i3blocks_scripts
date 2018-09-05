@@ -5,8 +5,8 @@ import re
 import sys
 
 ##### parametres : 
-## seuil_critiques 1 et 2, à partir desquels déclencher les nagbar warning (orange) et error (rouge).
-seuil_critique_33=20
+## seuil_critiques 1 et 2, à partir desquels déclencher les nagbar warning (orange) et error (rouge).
+seuil_critique_33 = 20
 seuil_critique_warning=17
 seuil_critique_error=13
 
@@ -14,6 +14,7 @@ seuil_critique_error=13
 checkpoint_file_dir="/tmp/tmp_ram"
 
 ##### fonctions
+
 def nagbar_launch_once(seuil=seuil_critique_warning
 						,checkpoint_file_name="i3blocks_battery_seuil_critique_warning"
 						,checkpoint_file_dir=checkpoint_file_dir
